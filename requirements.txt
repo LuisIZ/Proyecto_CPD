@@ -1,0 +1,6 @@
+mpi4py
+impi-rt; sys_platform == "win32"
+numpy
+scikit-learn
+scipy
+matplotlib
