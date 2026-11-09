@@ -1,6 +1,6 @@
 % Informe del proyecto CS4052 - Caso 5: KNN en paralelo con MPI.
 % Compilar desde esta carpeta:  latexmk -pdf informe.tex
-% Los textos en rojo (\pendiente) marcan lo que falta medir o confirmar.
+% Las figuras de resultados se generan con src/graficas.py en results/final/figuras.
 \documentclass[11pt,a4paper]{article}
 
 \usepackage[utf8]{inputenc}
@@ -13,6 +13,8 @@
 \usepackage{enumitem}
 \usepackage{xcolor}
 \usepackage{caption}
+\usepackage{graphicx}
+\graphicspath{{../../results/final/figuras/}}
 \usepackage[ruled,vlined,linesnumbered,spanish,onelanguage]{algorithm2e}
 \usepackage{tikz}
 \usetikzlibrary{babel,arrows.meta,positioning,fit,calc}
@@ -32,9 +34,6 @@
 \newcommand{\Tinf}{T_\infty}
 \newcommand{\tcomm}[1]{T_{comm_{#1}}}
 \newcommand{\tcomp}[1]{T_{comp_{#1}}}
-
-% Marca visible de contenido pendiente. Debe desaparecer antes de entregar.
-\newcommand{\pendiente}[1]{\textcolor{red!75!black}{\textbf{[PENDIENTE]} #1}}
 
 % Palabras clave del pseudocódigo
 \SetKwFor{ParaPar}{for}{\textcolor{red}{\textbf{pardo}}}{}
@@ -406,11 +405,41 @@ En ambos casos son mínimos, porque la segunda derivada es positiva en ese punto
 % ---------------------------------------------------------------- 3
 \section{Resultados y análisis}
 
-\pendiente{Esta sección se completa con las mediciones. Ningún valor experimental ha sido medido todavía.}
+Todos los valores de esta sección son la mediana de 5 repeticiones, medidas en una sola máquina. Las figuras y las cifras se generan con los scripts del repositorio a partir de los archivos CSV de \texttt{results/final}.
 
 \subsection{Entorno experimental}
 \label{sec:entorno}
-\pendiente{Hardware, sistema operativo, versiones de Python, mpi4py, MPI y NumPy; valores de $p$ y $n$; repeticiones por configuración. Valores de $a$ y $b$ medidos con el ping-pong. Explicar qué reloj se usa: $T_p$ y comunicación salen del maestro, y el cómputo es el máximo entre procesos. Para $n<1797$ se usan submuestras estratificadas, y para $n>1797$ se replican las imágenes con ruido entero, por lo que su precisión no es comparable con la del código base. Aclarar que en un solo nodo MPI transmite por memoria compartida, y que se fijó un hilo por proceso en NumPy.}
+
+El clúster Khipu no estuvo disponible por un problema de \textit{firewall} de la universidad, y el profesor autorizó medir en una laptop \cite{correo-profesor}. La Tabla~\ref{tab:entorno} resume el entorno.
+
+\begin{table}[ht]
+\centering\small
+\begin{tabularx}{\linewidth}{lX}
+  \toprule
+  Procesador & Intel Core i7-13620H: 10 núcleos físicos de dos tipos (6 de rendimiento con 2 hilos cada uno y 4 de eficiencia), 16 hilos \\
+  Memoria y sistema & 16\,GB de RAM, Windows 11 \\
+  Software & Python 3.14.6, NumPy 2.5.4 \cite{numpy}, mpi4py 4.1.2 \cite{mpi4py}, Intel MPI 2021.19 (paquete \texttt{impi-rt}), scikit-learn 1.9.1 \cite{sklearn} \\
+  Malla & $p\in\{1,2,4,8,16\}$ y $n\in\{450,900,1350,1797,3600,7200\}$, con las dos versiones: 300 corridas \\
+  Repeticiones & 5 por configuración, cada una en un \texttt{mpiexec} distinto; se reporta la mediana \\
+  \bottomrule
+\end{tabularx}
+\caption{Entorno de las mediciones.}
+\label{tab:entorno}
+\end{table}
+
+\textbf{Datos.} Con $n=1797$ se usan los datos originales. Para $n<1797$ tomamos submuestras estratificadas con semilla fija. Para $n>1797$ replicamos las imágenes con un ruido entero pequeño, recortado al rango 0--16 de los píxeles. Estos datos ampliados solo sirven para medir tiempos, porque el costo de una distancia no depende de los valores. Su precisión (1,0) no se reporta: el conjunto de prueba contiene copias casi idénticas de imágenes de entrenamiento.
+
+\textbf{Cómo se mide.} No usamos barreras. Cada proceso toma \texttt{MPI.Wtime()} antes y después de cada fase, y los tiempos se reúnen después de la parte medida. $T_p$ lo mide el maestro, desde antes del Broadcast hasta después de la votación. $T_{comm}$ también sale del maestro, y $T_{comp}$ es el máximo entre procesos. Como no hay barreras, $T_{comm}$ incluye la espera por los procesos más lentos. Cada corrida ejecuta el algoritmo una vez sin medir y mide la segunda ejecución (Sección~\ref{sec:betas}). Fijamos un hilo por proceso en NumPy, para que la implementación no se vuelva híbrida.
+
+\textbf{Memoria compartida dentro de un nodo.} Todos los procesos corren en una misma máquina, así que MPI transmite los mensajes por memoria compartida y no por red. El modelo sigue siendo de memoria distribuida, porque cada proceso tiene su propia memoria y solo se comunica con mensajes, pero $a$ y $b$ salen menores que entre nodos.
+
+\textbf{Latencia y tiempo por dato.} Con un ping-pong entre 2 procesos, con \texttt{comm.send} y \texttt{comm.recv} y mensajes de 1 a $2^{20}$ datos \texttt{float64}, ajustamos $t(m)=a+b\,m$ \cite{slides}:
+\[
+a=3{,}6\times 10^{-5}\ \text{s},\qquad b=5{,}8\times 10^{-9}\ \text{s por dato}\ (\approx 1{,}4\ \text{GB/s})
+\]
+La latencia es mucho mayor que la referencia de $10^{-7}$--$10^{-9}$\,s del curso, porque cada mensaje paga la serialización de objetos de Python que hacen las funciones en minúscula de mpi4py \cite{mpi4py}. Entre 16\,384 y 65\,536 datos el tiempo salta de 0,09 a 1,3\,ms, probablemente porque MPI cambia de protocolo para los mensajes grandes.
+
+\textbf{Limitación del hardware.} Con $p=8$ ya hay procesos en núcleos de eficiencia, que son más lentos, y con $p=16$ hay más procesos que núcleos físicos. No fijamos los procesos a núcleos, así que Windows decide dónde corre cada uno. Como $T_{comp}$ es el máximo entre procesos, el más lento marca el tiempo. Este efecto aparece en todos los resultados con $p\ge 8$.
 
 \subsection{Desarrollo en versiones beta}
 \label{sec:betas}
@@ -438,24 +467,211 @@ Durante el desarrollo aparecieron tres problemas que afectaban las mediciones o 
   \item \textbf{Costo del paso 6.} La selección se implementó ordenando los $p\,k$ candidatos, para desempatar por índice. Esto agrega un factor $\log(p\,k)$ a $\tcomp{2}$ en la Tabla~\ref{tab:costos}, que en este rango de $p$ es pequeño.
 \end{itemize}
 
+Antes de las mediciones finales se repitió la validación de las tres versiones, con el mismo resultado. Durante la primera corrida completa, una ejecución de $T_s$ se quedó colgada después de guardar su resultado, probablemente porque la laptop entró en suspensión. Descartamos esa medición, que daba un tiempo tres veces menor que las demás, y agregamos al script de experimentos un reintento para ese caso. La corrida se completó después sin problemas.
+
 \subsection{Tiempos de ejecución, cómputo y comunicación}
-\pendiente{Gráficas de los tres tiempos frente a $p$ para cada $n$, precisión frente a $n$ con los datos originales y granularidad $G=T_{comp}/T_{comm}$.}
+\label{sec:tiempos}
+
+La Figura~\ref{fig:tiempos} muestra los tres tiempos frente a $p$, en escala logarítmica.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\linewidth]{tiempos.pdf}
+\caption{Tiempo de ejecución $T_p$, de cómputo ($\max_q t^{(q)}_{comp}$) y de comunicación (en el maestro) frente a $p$, para cada $n$. Arriba, con \texttt{Gather}; abajo, con la reducción.}
+\label{fig:tiempos}
+\end{figure}
+
+\textbf{Ejecución.} Con $n\ge 3600$, $T_p$ baja hasta $p=16$: con $n=7200$, de 2,98\,s a 0,37\,s. Con $n\le 900$, el mínimo está en $p=4$ y después el tiempo sube: con $n=450$, pasa de 5,0\,ms en $p=4$ a 11,3\,ms en $p=16$. Con poco trabajo por proceso, el costo de agregar procesos supera la ganancia. Con $n=1350$ y $n=1797$ la curva queda casi plana desde $p=4$: con $n=1797$ y \texttt{Gather}, 51, 42 y 44\,ms en $p=4$, 8 y 16.
+
+\textbf{Cómputo.} Hasta $p=4$ se reduce casi a la mitad cada vez que se duplica $p$. Por ejemplo, con $n=7200$ pasa de 2,98 a 1,46 y a 0,73\,s. De $p=4$ a $p=8$ solo baja 1,5 veces (0,49\,s), y de $p=8$ a $p=16$, 1,4 veces (0,34\,s). Es la limitación del hardware de la Sección~\ref{sec:entorno}: desde $p=8$ hay procesos en núcleos más lentos. En nuestras mediciones, este es el principal límite del \textit{speedup}, más que la comunicación.
+
+El cómputo incluye el ordenamiento del paso 4, que resultó caro: con $p=1$ ocupa alrededor del 40\,\% del tiempo de las distancias más el ordenamiento (con $n=1797$, 70\,ms de 164\,ms). La Sección~\ref{sec:secuencial} supuso que el ordenamiento era menor porque $d>\log n$, y eso es cierto en cantidad de operaciones. Pero cada operación del ordenamiento cuesta mucho más que una suma o un producto vectorizados.
+
+\textbf{Comunicación.} Crece con $p$ para todo $n$: con $n=1797$ y \texttt{Gather}, de 2,5\,ms en $p=2$ a 12,8\,ms en $p=16$. Con $p=1$ no es cero (2,3\,ms con $n=1797$), porque las colectivas en minúscula serializan los datos aunque haya un solo proceso \cite{mpi4py}; el Scatter solo ya toma 1,7\,ms. Algunos puntos son irregulares (con $n=3600$ y $p=8$, 44\,ms), porque la comunicación incluye la espera por los procesos más lentos.
+
+\textbf{Granularidad.} La Figura~\ref{fig:granularidad} muestra $G=T_{comp}/T_{comm}$ \cite{slides}. Baja al aumentar $p$ y sube al aumentar $n$, como predice el modelo: el cómputo crece como $n^2$ y los datos enviados como $n$. $G$ es mayor que 1 en todas las configuraciones salvo $n=450$ con $p=16$, donde llega a 1 con \texttt{Gather} y baja apenas de 1 con la reducción. Es justamente donde el tiempo total ya subía.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.92\linewidth]{granularidad.pdf}
+\caption{Granularidad $G=T_{comp}/T_{comm}$. Con $G<1$ dominaría la comunicación.}
+\label{fig:granularidad}
+\end{figure}
+
+\textbf{Precisión.} Con los datos originales y sus submuestras, la precisión es la misma para todo $p$ y para las dos versiones (Figura~\ref{fig:precision}): repartir el trabajo no cambia el resultado. Las diferencias entre valores de $n$ vienen de los conjuntos de prueba, que tienen 90, 180, 270 y 360 puntos, no del paralelismo.
+
+\begin{figure}[ht]
+\centering
+\begin{minipage}{0.48\linewidth}
+  \centering
+  \includegraphics[width=\linewidth]{precision.pdf}
+  \caption{Precisión frente a $n$ con los datos originales. Es la misma para todo $p$ y en las dos versiones.}
+  \label{fig:precision}
+\end{minipage}\hfill
+\begin{minipage}{0.48\linewidth}
+  \centering
+  \includegraphics[width=\linewidth]{paso6.pdf}
+  \caption{Tiempo de los pasos 5 a 7 (recolección, selección y votación) con $n=1797$.}
+  \label{fig:paso6}
+\end{minipage}
+\end{figure}
 
 \subsection{Comparación con la complejidad teórica}
-\pendiente{Describir cómo se normalizó la expresión teórica (Sección~\ref{sec:metricas}), con los coeficientes $c_i$ obtenidos y sus unidades. Superponer $\hat T$ y $\hat T'$ a las mediciones, mostrar el ajuste separado de cómputo y comunicación, e informar el error. Comparar $c_3$ y $c_4$ con $b$ y $a$.}
+\label{sec:normalizacion}
+
+\textbf{Cómo se normalizó.} Para cada versión, ajustamos los coeficientes $c_i\ge 0$ de $\hat T$ (Sección~\ref{sec:metricas}) con las 30 medianas de $T_p$, por mínimos cuadrados no negativos. Minimizamos el error relativo, para que los tiempos de milisegundos pesen lo mismo que los de segundos. Cada $c_i$ está en segundos por unidad de su término, es decir, la expresión teórica se multiplica término a término por un costo medido. La Tabla~\ref{tab:coef} muestra los coeficientes y la Figura~\ref{fig:teoria} superpone $\hat T$ a las mediciones.
+
+\begin{table}[ht]
+\centering\small
+\begin{tabular}{lccccc}
+  \toprule
+  \textbf{Versión} & $c_1$ (s) & $c_2$ (s) & $c_3$ (s) & $c_4$ (s) & \textbf{Error medio} \\
+  \midrule
+  \texttt{Gather} & $5{,}18\times10^{-8}$ & $1{,}12\times10^{-6}$ & $1{,}02\times10^{-7}$ & $4{,}01\times10^{-4}$ & 8,1\,\% \\
+  Reducción & $4{,}87\times10^{-8}$ & --- & $3{,}95\times10^{-6}$ & $1{,}95\times10^{-4}$ & 11,5\,\% \\
+  \bottomrule
+\end{tabular}
+\caption{Coeficientes de $\hat T(n,p)=c_1\,n^2/p+c_2\,n\,p+c_3\,n\log_2 p+c_4\log_2 p$ y error relativo medio del ajuste.}
+\label{tab:coef}
+\end{table}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.92\linewidth]{teoria.pdf}
+\caption{Tiempo de ejecución medido (puntos) y modelo normalizado $\hat T$ (líneas).}
+\label{fig:teoria}
+\end{figure}
+
+\textbf{Significado de cada coeficiente.}
+\begin{itemize}
+  \item $c_1$: como $\ntr\,\nte\approx 0{,}16\,n^2$, equivale a $3{,}2\times10^{-7}$\,s por distancia, incluida su parte del ordenamiento. Dividido entre los $3d=192$ FLOP de una distancia, son $1{,}7\times10^{-9}$\,s por FLOP, es decir 0,59\,GFLOP/s. Es lo que se mide con $p=1$: entre 0,53 y 0,64\,GFLOP/s (Figura~\ref{fig:flops}).
+  \item $c_3$: el término de datos dominante es el del Broadcast, con $\nte\,d=12{,}8\,n$ datos. Con el $b$ del ping-pong, el modelo predice $12{,}8\,b=7{,}5\times10^{-8}$\,s. El ajuste da $1{,}0\times10^{-7}$\,s, del mismo orden.
+  \item $c_4$: con tres colectivas que pagan $a\log p$ cada una, el modelo predice $3a=1{,}1\times10^{-4}$\,s. El ajuste da 3,7 veces más, porque $c_4$ absorbe todo lo que crece como $\log p$ y no está modelado: la serialización y la espera por los procesos lentos. En cambio, al ajustar solo $T_{comm}$, el coeficiente de latencia es $3{,}5\times10^{-5}$\,s, prácticamente el $a$ del ping-pong ($3{,}6\times10^{-5}$\,s).
+  \item $c_2$: debería ser el costo de la selección en el maestro. Pero la selección medida con $n=1797$ y $p=16$ toma 4,7\,ms, lo que da unos $1{,}6\times10^{-7}$\,s por unidad de $n\,p$: el ajuste da 7 veces más. $c_2$ absorbe todo lo que crece linealmente con $p$, sobre todo el cómputo que deja de escalar desde $p=8$.
+  \item En la reducción, $c_3$ es 40 veces mayor que con \texttt{Gather}. En $\hat T'$, el término de las fusiones $\oplus$, $k\,n\log p$, y el de datos comparten la misma columna $n\log p$. Así que $c_3$ mide sobre todo las fusiones, que se hacen en Python por cada punto de prueba.
+\end{itemize}
+
+\textbf{Error.} El modelo reproduce la forma de las curvas, con su mínimo, y tiene un error medio de 8\,\% con \texttt{Gather} y 12\,\% con la reducción. Las mayores desviaciones están en $p=8$ con $n$ grande: con $n=7200$, el modelo da 0,40\,s y se midió 0,51\,s. Es el punto en que entran los núcleos de eficiencia.
+
+\textbf{Cómputo y comunicación por separado.} La Figura~\ref{fig:fases} ajusta cada fase con sus propios términos. El cómputo tiene un error de 10 a 11\,\%. La comunicación tiene un error de 28 a 35\,\%: son tiempos de milisegundos, con ruido, y que incluyen esperas. En el ajuste de la comunicación con \texttt{Gather} agregamos el término $n(p-1)$ del modelo de árbol binomial \cite{thakur}, y su coeficiente no es nulo ($1{,}8\times10^{-7}$\,s). Es decir, la comunicación medida crece más rápido que $\log p$, como anticipamos en la Sección~\ref{sec:metricas}: el maestro recibe físicamente $p-1$ bloques. La forma $\log p$ del curso describe bien la latencia, pero es una cota inferior para el término de datos del \texttt{gather}.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.92\linewidth]{teoria_fases.pdf}
+\caption{Cómputo y comunicación medidos (puntos) y su ajuste por separado (líneas).}
+\label{fig:fases}
+\end{figure}
 
 \subsection{Número óptimo de procesos}
-\pendiente{Valor de $p^*$ estimado con los $c_i$, y comparación con el $p$ de menor tiempo medido y con el cruce de las curvas de cómputo y comunicación.}
+\label{sec:optimo}
+
+La Tabla~\ref{tab:optimo} compara $p^*$, calculado con los coeficientes de la Tabla~\ref{tab:coef}, con el $p$ de menor tiempo medido.
+
+\begin{table}[ht]
+\centering\small
+\begin{tabular}{rcccc}
+  \toprule
+  & \multicolumn{2}{c}{\textbf{Con \texttt{Gather}}} & \multicolumn{2}{c}{\textbf{Con reducción}} \\
+  \cmidrule(lr){2-3}\cmidrule(lr){4-5}
+  $n$ & $p^*$ estimado & mejor $p$ medido & $p^{*\prime}$ estimado & mejor $p$ medido \\
+  \midrule
+  450  & 4,6  & 4  & 3,5  & 4 \\
+  900  & 6,4  & 4  & 7,3  & 4 \\
+  1350 & 7,9  & 4  & 11,1 & 16 \\
+  1797 & 9,1  & 8  & 15,0 & 16 \\
+  3600 & 12,9 & 16 & 30,4 & 16 \\
+  7200 & 18,2 & 16 & 61,2 & 16 \\
+  \bottomrule
+\end{tabular}
+\caption{Número óptimo de procesos estimado con el modelo y mejor $p$ de la malla medida.}
+\label{tab:optimo}
+\end{table}
+
+Con \texttt{Gather}, $p^*=\sqrt{c_1 n/c_2}$ crece como $\sqrt{n}$. Coincide con el mejor $p$ medido, dentro de la resolución de la malla (potencias de 2), para $n=450$ y para $n\ge 1797$. Para $n=900$ y $n=1350$ lo sobrestima, pero allí el mínimo es plano: con $n=1350$, $p=4$ y $p=8$ difieren en un 6\,\% (26,8 frente a 28,3\,ms). Con la reducción, $p^{*\prime}$ crece casi como $n$. Para $n\ge 1797$ queda en el borde de la malla o fuera de ella, lo que coincide con que el mejor $p$ medido sea 16, pero no se puede verificar sin más núcleos. En ambos casos $\hat T''(p^*)>0$, así que son mínimos.
+
+\textbf{Para el conjunto original ($n=1797$), el número óptimo de procesos es $p=8$}: el modelo da 9,1 y la medición, 8.
+
+Las curvas de cómputo y comunicación no se cruzan en este rango (Figura~\ref{fig:tiempos}): la comunicación medida queda por debajo del cómputo, salvo con $n=450$ y $p=16$, donde se igualan. Así que, aquí, el criterio del cruce \cite{slides} solo marca el límite para el $n$ más pequeño. Para el resto, el óptimo lo fijan el costo que crece con $p$ en el maestro y la limitación del hardware.
 
 \subsection{\textit{Speedup} y FLOPs}
-\pendiente{Gráficas de \textit{speedup} y de FLOPs frente a $p$, y tiempo del código base junto a $T_s$.}
+\label{sec:speedup}
+
+\textbf{$T_s$ y código base.} Para $n\ge 900$, $T_s$ difiere en menos de 3\,\% de la corrida con $p=1$ (con $n=1797$, 0,166 frente a 0,168\,s), así que el costo de MPI con un proceso es pequeño. Con $n=450$ la diferencia es de 9\,\%, porque el tiempo total es de solo 10\,ms. El código base \cite{base} tarda 3,42\,s con $n=1797$, 20,6 veces más que $T_s$: eso es lo que aporta la vectorización. Juntando ambas cosas, la mejor versión paralela es entre 80 y 90 veces más rápida que el código base, pero de ese factor el paralelismo aporta solo unas 4 veces. Por eso el \textit{speedup} se mide contra $T_s$ y no contra el código base.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.92\linewidth]{speedup_eficiencia.pdf}
+\caption{\textit{Speedup} $S=T_s/T_p$ (arriba, escala logarítmica) y eficiencia $E=S/p$ (abajo). La línea punteada es el \textit{speedup} ideal.}
+\label{fig:speedup}
+\end{figure}
+
+\textbf{\textit{Speedup}.} La Figura~\ref{fig:speedup} muestra que es casi lineal hasta $p=4$ para $n\ge 1350$. El máximo es 8,00 con \texttt{Gather} y 7,77 con la reducción, ambos con $n=7200$ y $p=16$. Con los datos originales ($n=1797$) llega a 3,96 en $p=8$ con \texttt{Gather} y a 4,28 en $p=16$ con la reducción. Con $n=3600$ y $p=2$ a 4, la eficiencia supera ligeramente 1 (hasta 1,05 con \texttt{Gather} y 1,12 con la reducción). Probablemente es un efecto de caché, porque los bloques más pequeños caben mejor en ella; no lo verificamos. No es el error de la Sección~\ref{sec:betas}, que daba un factor de 4 y ya está corregido.
+
+\textbf{FLOPs.} La Figura~\ref{fig:flops} muestra $F/T_p$ y $F/\max_q t^{(q)}_{comp}$. Como $F$ no depende de $p$, $F/T_p$ sigue la forma del \textit{speedup}: de 0,53 a 0,64\,GFLOP/s con $p=1$ hasta 4,33\,GFLOP/s con \texttt{Gather} y 4,20 con la reducción ($n=7200$, $p=16$). Con $n=1797$ el máximo es 2,37\,GFLOP/s, en $p=8$. Si se excluye la comunicación, con $n=7200$ y $p=16$ se llega a 4,9\,GFLOP/s. Estos valores subestiman el trabajo real, porque $F$ solo cuenta las distancias y no el ordenamiento.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.92\linewidth]{flops.pdf}
+\caption{FLOP por segundo en la región paralelizable, con el tiempo total (arriba) y solo con el de cómputo (abajo).}
+\label{fig:flops}
+\end{figure}
 
 \subsection{Escalabilidad}
 \label{sec:escalabilidad}
-\pendiente{Eficiencia para distintos $n$ y $p$. Validar la isoeficiencia con los datos: medir $E$ en pares $(n,p)$ con $n/p^2$ constante y con $n/(p\log_2 p)$ constante, comprobar si $E$ se mantiene y compararla con la $E$ del modelo normalizado. Usar cada serie como control de la otra versión.}
+
+\textbf{Eficiencia con $n$ variable.} En la Figura~\ref{fig:speedup} (abajo), la eficiencia baja al aumentar $p$ y sube al aumentar $n$. Con $p=16$ va de 0,06 con $n=450$ a 0,50 con $n=7200$. El algoritmo solo mantiene su eficiencia si el problema crece junto con $p$, como predice $E=O\big(1/(1+p^2/n)\big)$.
+
+\textbf{Validación de la isoeficiencia.} Seguimos el método del curso \cite{slides}: escalar $n$ según la condición y comprobar si $E$ se mantiene. Medimos dos series de pares $(n,p)$, con $n/p^2\approx 28$ y con $n/(p\log_2 p)\approx 56$. Cada serie sirve además de control para la otra versión. La Tabla~\ref{tab:iso} y la Figura~\ref{fig:iso} comparan la $E$ medida con la que predice el modelo normalizado, $\hat E=\hat T(n,1)/(p\,\hat T(n,p))$.
+
+\begin{table}[ht]
+\centering\small
+\begin{tabular}{llcccc}
+  \toprule
+  & & \multicolumn{2}{c}{\textbf{Con \texttt{Gather}}} & \multicolumn{2}{c}{\textbf{Con reducción}} \\
+  \cmidrule(lr){3-4}\cmidrule(lr){5-6}
+  \textbf{Condición} & $(n,p)$ & $E$ medida & $\hat E$ & $E$ medida & $\hat E$ \\
+  \midrule
+  $n\propto p^2$ & (450, 4)  & 0,511 & 0,496 & 0,499 & 0,385 \\
+                 & (1797, 8) & 0,495 & 0,545 & 0,489 & 0,474 \\
+                 & (7200, 16)& 0,500 & 0,558 & 0,486 & 0,580 \\
+  \midrule
+  $n\propto p\log_2 p$ & (450, 4)  & 0,511 & 0,496 & 0,499 & 0,385 \\
+                       & (1350, 8) & 0,411 & 0,469 & 0,413 & 0,401 \\
+                       & (3600, 16)& 0,396 & 0,385 & 0,431 & 0,407 \\
+  \bottomrule
+\end{tabular}
+\caption{Eficiencia medida y del modelo normalizado en las series de isoeficiencia.}
+\label{tab:iso}
+\end{table}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.92\linewidth]{isoeficiencia.pdf}
+\caption{Eficiencia en las series de isoeficiencia. Línea continua: medida; punteada: modelo normalizado.}
+\label{fig:iso}
+\end{figure}
+
+\begin{itemize}
+  \item \textbf{\texttt{Gather}, condición $n\propto p^2$: se cumple.} $E$ se mantiene en 0,51, 0,50 y 0,50 mientras $p$ pasa de 4 a 16, con una variación de unos 3\,\%. Esto valida con los datos la condición $n=\Omega(p^2)$ de la Sección~\ref{sec:metricas}.
+  \item \textbf{\texttt{Gather}, control con $n\propto p\log p$: $E$ cae} de 0,51 a 0,41 y a 0,40. Hacer crecer $n$ más lento que $p^2$ no alcanza para esta versión, como predice el modelo.
+  \item \textbf{Reducción, condición $n\propto p\log p$: no se cumple del todo.} $E$ baja de 0,50 a 0,41 y sube a 0,43, una caída de 14 a 17\,\%. Con $n\propto p^2$ se mantiene (0,50, 0,49 y 0,49). La reducción elimina el término $k\,n\,p$ de la selección en el maestro, pero ese término medido es pequeño (la selección toma menos de 5\,ms con $n=1797$ y $p=16$). La pérdida de eficiencia viene, sobre todo, del cómputo que deja de escalar desde $p=8$ (Sección~\ref{sec:tiempos}). Ese efecto afecta igual a las dos versiones y crece más rápido que $p\log p$. Por eso, en este rango, la reducción no muestra la mejor escalabilidad que predice la teoría.
+\end{itemize}
+
+El modelo normalizado sigue las series medidas con una diferencia de hasta 0,06 con \texttt{Gather} y de hasta 0,11 con la reducción. Dos advertencias: las condiciones de isoeficiencia son asintóticas, y cada serie tiene solo tres puntos, hasta $p=16$. Además, con $p=16$ hay más procesos que núcleos físicos. Para separar el algoritmo del hardware habría que repetir estas series en una máquina con al menos 16 núcleos iguales, como Khipu o las PC del laboratorio L507.
 
 \subsection{Mejoras a la solución}
-\pendiente{Conclusiones de la comparación entre \texttt{Gather} y la reducción, y otras mejoras: \texttt{argpartition} en el paso 4 y colectivas en mayúscula con arreglos de NumPy.}
+\label{sec:mejoras}
+
+\textbf{\texttt{Gather} frente a la reducción.} La mejora que implementamos (Algoritmo~\ref{alg:knnred}) no da una ganancia clara en las mediciones. Los tiempos totales de las dos versiones difieren poco y en ambas direcciones. Con $n=1797$ y $p=16$ gana la reducción (\textit{speedup} de 4,28 frente a 3,77). Con $n=900$ y $p=16$ gana \texttt{Gather} (2,19 frente a 1,74). La Figura~\ref{fig:paso6} muestra los pasos 5 a 7 con $n=1797$: en ambas versiones pasan de unos 2\,ms con $p=1$ a 13\,ms con $p=16$, y con $p=8$ la reducción es más lenta (12 frente a 6\,ms). La razón es que, con $p\le 16$ y $k=3$, el maestro revisa a lo más 48 candidatos por punto de prueba, así que la reducción ahorra poco. A cambio, cada nivel del árbol serializa objetos y ejecuta $\oplus$ en Python. Esto coincide con lo que anticipó el profesor: el ahorro es pequeño \cite{correo-profesor}. La reducción convendría con muchos más procesos o con un $k$ mayor.
+
+Otras mejoras que se desprenden de las mediciones:
+\begin{itemize}
+  \item \textbf{Ordenamiento parcial en el paso 4.} El ordenamiento ocupa alrededor del 40\,\% del cómputo con $p=1$ (Sección~\ref{sec:tiempos}). Con \texttt{np.argpartition} se obtienen los $k$ menores en tiempo lineal, sin ordenar todo el bloque. Esto reduce $\tcomp{1}$, aunque cambia el término $\log(\ntr/p)$ de la Tabla~\ref{tab:costos}.
+  \item \textbf{Colectivas con arreglos de NumPy.} Las funciones en mayúscula de mpi4py (\texttt{Bcast}, \texttt{Scatterv}, \texttt{Gather}) envían los arreglos sin serializarlos \cite{mpi4py}. Esto bajaría la latencia medida, que hoy está dominada por la serialización, y la comunicación con $p=1$. \texttt{Scatterv} permite bloques de distinto tamaño.
+  \item \textbf{Reparto según la velocidad de cada núcleo.} Con núcleos de dos tipos, bloques iguales no equivalen a carga balanceada. Se puede fijar cada proceso a un núcleo, o dar bloques más grandes a los núcleos de rendimiento.
+  \item \textbf{Ejecución en un clúster.} Medir en Khipu o en el laboratorio L507, con núcleos iguales y más de 16, permitiría verificar $p^{*\prime}$ y la isoeficiencia de la reducción.
+  \item \textbf{Versión híbrida.} Combinar MPI entre nodos con hilos dentro de cada nodo. No la implementamos, porque el enunciado pide memoria distribuida.
+\end{itemize}
 
 % ---------------------------------------------------------------- Bibliografía
 \renewcommand{\refname}{Bibliografía}
@@ -469,29 +685,36 @@ Durante el desarrollo aparecieron tres problemas que afectaban las mediciones o 
 \textbf{Impacto:} es el código que paralelizamos. De él obtuvimos $T_s$ (Sección~\ref{sec:secuencial}), los parámetros ($k=3$, división 80/20, \texttt{random\_state=42}) y la precisión de referencia ($0{,}9833$).
 
 \bibitem{mpi4py} L. Dalcin, \textit{MPI for Python (mpi4py) documentation} [Online]. Available: \url{https://mpi4py.readthedocs.io/en/stable/} (accessed Nov. 4, 2026).\\
-\textbf{Impacto:} revisamos cómo funcionan \texttt{comm.bcast}, \texttt{comm.scatter} y \texttt{comm.gather}, y que las reducciones de objetos usan un árbol por defecto (\texttt{mpi4py.rc.fast\_reduce}), lo que sustenta el Algoritmo~\ref{alg:knnred}.
+\textbf{Impacto:} revisamos cómo funcionan \texttt{comm.bcast}, \texttt{comm.scatter} y \texttt{comm.gather}, y que las reducciones de objetos usan un árbol por defecto (\texttt{mpi4py.rc.fast\_reduce}), lo que sustenta el Algoritmo~\ref{alg:knnred}. También explica que las funciones en minúscula serializan los objetos, lo que usamos para interpretar la latencia medida y la comunicación con $p=1$ (Secciones~\ref{sec:entorno} y~\ref{sec:tiempos}), y para proponer las colectivas con arreglos de NumPy (Sección~\ref{sec:mejoras}).
 
 \bibitem{sklearn} F. Pedregosa \textit{et al.}, ``Scikit-learn: Machine Learning in Python,'' \textit{Journal of Machine Learning Research}, vol. 12, pp. 2825--2830, 2011.\\
 \textbf{Impacto:} es la librería que usa el código base (\texttt{load\_digits}, \texttt{train\_test\_split}). De ella salen los datos y su división, descritos en la Introducción.
 
 \bibitem{slides} J. Fiestas, diapositivas y apuntes del curso CS4052: U1.1 Fundamentos de paralelismo, U1.2 Fundamentos (Foster, Flynn), U1.3 DAG, U2.1 Diseño en paralelo (\textit{performance}), U2.2 PRAM 01, U2.3 PRAM 02, U2.4 Particionamiento, U3.2, U3.5, U6.1 y U6.2 (\textit{performance}). Lima, Perú: UTEC, 2026.\\
-\textbf{Impacto:} son la base teórica del informe: paralelización natural (Introducción), pasos de Foster y particiones balanceadas (Sección~\ref{sec:foster}), formato del PRAM con \textbf{pardo}, pasos numerados y CREW (Sección~\ref{sec:pram}), teorema de Brent (Sección~\ref{sec:span}), y $S=T_s/T_p$, $E=S/p$, isoeficiencia, FLOPs, medición de $a$ y $b$ y el modelo $T_{comm}=f(p)(\alpha+x\beta)$ (Sección~\ref{sec:metricas}).
+\textbf{Impacto:} son la base teórica del informe: paralelización natural (Introducción), pasos de Foster y particiones balanceadas (Sección~\ref{sec:foster}), formato del PRAM con \textbf{pardo}, pasos numerados y CREW (Sección~\ref{sec:pram}), teorema de Brent (Sección~\ref{sec:span}), y $S=T_s/T_p$, $E=S/p$, isoeficiencia, FLOPs, medición de $a$ y $b$ y el modelo $T_{comm}=f(p)(\alpha+x\beta)$ (Sección~\ref{sec:metricas}). En los resultados seguimos su ping-pong para medir $a$ y $b$ (Sección~\ref{sec:entorno}), la granularidad $G$ y el cruce de cómputo y comunicación (Secciones~\ref{sec:tiempos} y~\ref{sec:optimo}), y su método para validar la isoeficiencia escalando $n$ (Sección~\ref{sec:escalabilidad}).
 
 \bibitem{pd02} J. Fiestas, \textit{CS4052 -- Práctica Dirigida 02 (solución)}. Lima, Perú: UTEC, 2026.\\
 \textbf{Impacto:} nos sirvió de modelo para escribir el pseudocódigo con Scatter, Broadcast y Gather (Sección~\ref{sec:pram}) y para expresar la eficiencia en la forma $E=O(1/(1+\dots))$ (Sección~\ref{sec:metricas}).
 
 \bibitem{thakur} R. Thakur, R. Rabenseifner y W. Gropp, ``Optimization of Collective Communication Operations in MPICH,'' \textit{International Journal of High Performance Computing Applications}, vol. 19, no. 1, pp. 49--66, 2005.\\
-\textbf{Impacto:} describe el modelo de árbol binomial para las colectivas, que comentamos en la Sección~\ref{sec:metricas} como explicación física de por qué el maestro recibe $(p-1)$ bloques en el \textit{gather}.
+\textbf{Impacto:} describe el modelo de árbol binomial para las colectivas, que comentamos en la Sección~\ref{sec:metricas} como explicación física de por qué el maestro recibe $(p-1)$ bloques en el \textit{gather}. En la Sección~\ref{sec:normalizacion} usamos su término $n(p-1)$ para ajustar la comunicación medida.
 
-\bibitem{correo-profesor} J. Fiestas, respuesta por correo electrónico a consulta del grupo sobre el costo de \texttt{scatter} y \texttt{gather}, 6 de noviembre de 2026 (comunicación personal).\\
-\textbf{Impacto:} confirma que el costo correcto es $O(\log p)$ y no $O(p)$, lo que sustenta la Sección~\ref{sec:metricas}, la Tabla~\ref{tab:costos} y la Figura~\ref{fig:dag}.
+\bibitem{correo-profesor} J. Fiestas, respuesta por correo electrónico a consulta del grupo sobre el costo de \texttt{scatter} y \texttt{gather} y el acceso a Khipu, 6 de noviembre de 2026 (comunicación personal).\\
+\textbf{Impacto:} confirma que el costo correcto es $O(\log p)$ y no $O(p)$, lo que sustenta la Sección~\ref{sec:metricas}, la Tabla~\ref{tab:costos} y la Figura~\ref{fig:dag}. También autorizó medir en una laptop (Sección~\ref{sec:entorno}) y anticipó que la reducción ahorraría poco, lo que contrastamos con las mediciones (Sección~\ref{sec:mejoras}).
 
 \bibitem{numpy} C. R. Harris \textit{et al.}, ``Array programming with NumPy,'' \textit{Nature}, vol. 585, pp. 357--362, 2020.\\
 \textbf{Impacto:} es la librería con la que se calculan las distancias en el código paralelo. Su manejo de arreglos temporales explicó el problema de rendimiento descrito en la Sección~\ref{sec:betas}.
 
-\bibitem{ia} Anthropic, \textit{Claude Opus 5} y \textit{Claude Opus 5.5} (asistentes de inteligencia artificial, usados con Claude Code), setiembre y noviembre de 2026.\\
-\textbf{Uso:} en la entrega parcial, resumió y ordenó el material de clase y redactó el borrador del informe. En esta entrega, redactó en LaTeX la versión corregida según las observaciones del profesor: pseudocódigo y diagramas (Secciones~\ref{sec:foster} y~\ref{sec:pram}), trabajo y \textit{span} (Sección~\ref{sec:span}) y métricas (Sección~\ref{sec:metricas}). También escribió el código de las versiones beta y los scripts de validación, experimentos y gráficas, y detectó los problemas de medición de la Sección~\ref{sec:betas}. Además, comparó el Método con las diapositivas del curso \cite{slides}.\\
-\textbf{Impacto:} la mayor parte de la redacción se hizo con esta herramienta, lo que ahorró tiempo. También propuso la reducción en árbol para optimizar el paso 6 (Algoritmo~\ref{alg:knnred}). El grupo es responsable de lo presentado.
+\bibitem{ia} Anthropic, \textit{Claude Opus 5}, \textit{Claude Sonnet 5} y \textit{Claude Opus 5.5} (asistentes de inteligencia artificial, usados con Claude Code), setiembre y noviembre de 2026.\\
+\textbf{Uso:} en la entrega parcial, resumió y ordenó el material de clase y redactó el borrador del informe. En esta entrega:
+\begin{itemize}
+  \item Redactó en LaTeX la versión corregida del Método según las observaciones del profesor: pseudocódigo y diagramas (Secciones~\ref{sec:foster} y~\ref{sec:pram}), trabajo y \textit{span} (Sección~\ref{sec:span}) y métricas (Sección~\ref{sec:metricas}). Después aplicó la corrección de \textit{scatter} y \textit{gather} a $O(\log p)$ que confirmó el profesor \cite{correo-profesor}.
+  \item Escribió el código de las versiones beta y los scripts de validación, experimentos y gráficas. Detectó los problemas de medición de la Sección~\ref{sec:betas}, incluido el de la ejecución que se colgó.
+  \item Comparó el Método con las diapositivas del curso \cite{slides}.
+  \item Redactó la sección de Resultados a partir de las mediciones y de los coeficientes calculados por los scripts, y armó la presentación final.
+\end{itemize}
+Cada cifra de los Resultados se contrastó con los archivos de mediciones. Las mediciones las ejecutó el grupo en su laptop.\\
+\textbf{Impacto:} la mayor parte de la redacción y del código se hizo con esta herramienta, lo que ahorró tiempo. También propuso la reducción en árbol para optimizar el paso 6 (Algoritmo~\ref{alg:knnred}). El grupo es responsable de lo presentado.
 
 \end{thebibliography}
 
