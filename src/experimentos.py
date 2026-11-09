@@ -82,15 +82,22 @@ def main():
     medir_base(carpeta / "base.csv", args.repeticiones)
 
     ruta_secuencial = carpeta / "secuencial.csv"
-    secuenciales = ya_secuenciales(ruta_secuencial)
 
     total = args.repeticiones * len(VERSIONES) * len(args.p) * len(args.n)
     contador, inicio = 0, time.time()
     for repeticion in range(args.repeticiones):
         for n in args.n:
-            if (n, repeticion) not in secuenciales:
-                ejecutar_sin_mpi("secuencial_vectorizado.py", "--n", n,
-                                 "--repeticion", repeticion, "--csv", ruta_secuencial)
+            for intento in range(1, 4):
+                if (n, repeticion) in ya_secuenciales(ruta_secuencial):
+                    break
+                try:
+                    ejecutar_sin_mpi("secuencial_vectorizado.py", "--n", n,
+                                     "--repeticion", repeticion, "--csv", ruta_secuencial,
+                                     tiempo_max=300)
+                except subprocess.TimeoutExpired:
+                    # A veces se cuelga al terminar, después de escribir su fila.
+                    print(f"AVISO: secuencial_vectorizado.py con n={n} se colgó "
+                          f"(intento {intento}).", flush=True)
             for p in args.p:
                 for version, script in VERSIONES.items():
                     contador += 1
