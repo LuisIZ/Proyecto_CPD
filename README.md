@@ -7,6 +7,7 @@ Proyecto de laboratorio de CS4052 Computación Paralela y Distribuida (UTEC, 202
 | Carpeta | Qué hay |
 |---|---|
 | [`informe_final/`](informe_final) | Informe final ([`informe_final.pdf`](informe_final/informe_final.pdf), 17 páginas), su fuente LaTeX y sus figuras |
+| [`presentacion_final/`](presentacion_final) | Presentación final para la exposición (19 diapositivas): [`presentacion_final.pdf`](presentacion_final/presentacion_final.pdf) y `presentacion_final.pptx`, que trae las notas del orador |
 | [`codigo/`](codigo) | Betas 1, 2 y 3 (y la 3b, con `comm.reduce`), validación, ping-pong, barrido de experimentos y análisis. Cada archivo y sus comandos están en [`codigo/README.md`](codigo/README.md) |
 | [`codigo/resultados/`](codigo/resultados) | Medición final del 11-nov-2026 (Apple M1 Pro, p = 1 a 8, una sola sesión): tiempos, tablas, figuras, validación y entorno |
 | [`docs/`](docs) | Enunciado del proyecto |
