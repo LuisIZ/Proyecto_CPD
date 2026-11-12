@@ -1,0 +1,7 @@
+== Pruebas aparte 2026-11-11 19:19:36  carga externa: 0.84 nucleos
+Empates de distancia entre el vecino 3 y el 4: 7 de 360 puntos de prueba
+Paso 3 (distancias): 5.21 ns por par
+Paso 4 (ordenar):    46.42 ns por par = 4.43 ns por par y por nivel de log2(n_tr)
+Contencion: p = 1 copias, tiempo por copia = 26.58 ms (max 26.58 ms)
+Contencion: p = 4 copias, tiempo por copia = 27.22 ms (max 27.50 ms)
+Contencion: p = 8 copias, tiempo por copia = 29.77 ms (max 31.42 ms)
