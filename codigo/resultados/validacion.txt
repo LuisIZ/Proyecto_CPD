@@ -1,0 +1,56 @@
+== Validacion 2026-11-11 19:15:42
+Python 3.11.6 | numpy 2.4.6 | scikit-learn 1.9.1 | mpi4py 4.1.2 | matplotlib 3.11.2 | pandas 3.0.6
+Open MPI v5.0.11, package: Open MPI brew@Golden-Gate-arm64.local Distribution, ident: 5.0.11, repo rev: v5.0.11rc1, Sep 16, 2026
+Cada caso: la beta con --validar y --calentamientos 0; se comparan las predicciones de los modos A y B.
+tamano      version   p   n_tr  n_te  accuracy  = secuencial = codigo base  resultado
+n0          beta 1    1   1437   360    0.9833            --          True  OK
+n0          beta 1    2   1437   360    0.9833            --          True  OK
+n0          beta 1    3   1437   360    0.9833            --          True  OK
+n0          beta 1    4   1437   360    0.9833            --          True  OK
+n0          beta 1    5   1437   360    0.9833            --          True  OK
+n0          beta 1    6   1437   360    0.9833            --          True  OK
+n0          beta 1    7   1437   360    0.9833            --          True  OK
+n0          beta 1    8   1437   360    0.9833            --          True  OK
+n0          beta 2    1   1437   360    0.9833            --          True  OK
+n0          beta 2    2   1437   360    0.9833            --          True  OK
+n0          beta 2    3   1437   360    0.9833            --          True  OK
+n0          beta 2    4   1437   360    0.9833            --          True  OK
+n0          beta 2    5   1437   360    0.9833            --          True  OK
+n0          beta 2    6   1437   360    0.9833            --          True  OK
+n0          beta 2    7   1437   360    0.9833            --          True  OK
+n0          beta 2    8   1437   360    0.9833            --          True  OK
+n0          beta 3    1   1437   360    0.9833          True          True  OK
+n0          beta 3    2   1437   360    0.9833          True          True  OK
+n0          beta 3    3   1437   360    0.9833          True          True  OK
+n0          beta 3    4   1437   360    0.9833          True          True  OK
+n0          beta 3    5   1437   360    0.9833          True          True  OK
+n0          beta 3    6   1437   360    0.9833          True          True  OK
+n0          beta 3    7   1437   360    0.9833          True          True  OK
+n0          beta 3    8   1437   360    0.9833          True          True  OK
+n0          beta 3b   1   1437   360    0.9833          True          True  OK
+n0          beta 3b   2   1437   360    0.9833          True          True  OK
+n0          beta 3b   3   1437   360    0.9833          True          True  OK
+n0          beta 3b   4   1437   360    0.9833          True          True  OK
+n0          beta 3b   5   1437   360    0.9833          True          True  OK
+n0          beta 3b   6   1437   360    0.9833          True          True  OK
+n0          beta 3b   7   1437   360    0.9833          True          True  OK
+n0          beta 3b   8   1437   360    0.9833          True          True  OK
+n/4         beta 3    4    359    90    0.9778          True          True  OK
+n/4         beta 3    8    359    90    0.9778          True          True  OK
+n/4         beta 3b   4    359    90    0.9778          True          True  OK
+n/4         beta 3b   8    359    90    0.9778          True          True  OK
+4n          beta 3    4   5748  1440    0.9812          True          True  OK
+4n          beta 3    8   5748  1440    0.9812          True          True  OK
+4n          beta 3b   4   5748  1440    0.9812          True          True  OK
+4n          beta 3b   8   5748  1440    0.9812          True          True  OK
+16n         beta 3    8  22992  5760    0.9807          True       omitida  OK
+16n         beta 3b   8  22992  5760    0.9807          True       omitida  OK
+debil p=2   beta 3    2   2032   509    0.9784          True          True  OK
+debil p=4   beta 3    4   2874   720    0.9806          True          True  OK
+debil p=8   beta 3    8   4064  1018    0.9804          True          True  OK
+relleno     beta 3    4      7    36    0.2222          True          True  OK
+relleno     beta 3    8      7    36    0.2222          True          True  OK
+relleno     beta 3b   4      7    36    0.2222          True          True  OK
+relleno     beta 3b   8      7    36    0.2222          True          True  OK
+(omitido) iso p=8 (n = 115 008 imagenes, 2,1e9 pares): omitido, la version secuencial sola tarda unos 3 min en este Mac
+Resumen: 49 de 49 casos correctos (todas las predicciones son identicas)

@@ -1,0 +1,25 @@
+== Inicio: 2026-11-11 19:15:37  carga: 2.76  (19:15  up 11:52, 1 user, load averages: 2.76 3.83 4.97)
+carga externa: 1.40 nucleos (los que mas usan: WindowServer 49%, Claude Helper (Renderer) 34%, Claude Helper 20%, claude 18%, claude 4%)
+comando: /Users/johar/Downloads/CPD_Proyecto_KNN/.venv/bin/python correr_experimentos.py resultados_20261111
+malla: 67 configuraciones, 4 repeticiones
+hilos: OMP_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+machdep.cpu.brand_string: Apple M1 Pro
+hw.physicalcpu: 10
+hw.logicalcpu: 10
+hw.memsize: 17179869184
+hw.perflevel0.name: Performance
+hw.perflevel0.physicalcpu: 8
+hw.perflevel1.name: Efficiency
+hw.perflevel1.physicalcpu: 2
+ProductName:		macOS  ProductVersion:		27.2.1  BuildVersion:		26B131
+Python 3.11.6 | numpy 2.4.6 | scikit-learn 1.9.1 | mpi4py 4.1.2 | matplotlib 3.11.2 | pandas 3.0.6
+Open MPI v5.0.11, package: Open MPI brew@Golden-Gate-arm64.local Distribution, ident: 5.0.11, repo rev: v5.0.11rc1, Sep 16, 2026
+Wtick 1.0000000000000002e-06
+mpirun (Open MPI) 5.0.11
+energia: Now drawing from 'Battery Power'  lowpowermode         0
+termico: Note: No thermal warning level has been recorded  Note: No performance warning level has been recorded  Note: No CPU power status has been recorded
+AVISO: la Mac esta a bateria: conviene enchufarla (a bateria puede bajar el rendimiento)
+== Fin: 2026-11-11 19:48:41  carga: 6.89  carga externa: 0.96  duracion: 33.0 min  fallos: 0
+energia: Now drawing from 'Battery Power'  lowpowermode         0
+termico: Note: No thermal warning level has been recorded  Note: No performance warning level has been recorded  Note: No CPU power status has been recorded
+AVISO: la Mac esta a bateria: conviene enchufarla (a bateria puede bajar el rendimiento)
