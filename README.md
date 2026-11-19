@@ -8,6 +8,7 @@ Proyecto de laboratorio de CS4052 Computación Paralela y Distribuida (UTEC, 202
 |---|---|
 | [`informe_final/`](informe_final) | Informe final ([`informe_final.pdf`](informe_final/informe_final.pdf), 17 páginas), su fuente LaTeX y sus figuras |
 | [`presentacion_final/`](presentacion_final) | Presentación final para la exposición (19 diapositivas): [`presentacion_final.pdf`](presentacion_final/presentacion_final.pdf) y `presentacion_final.pptx`, que trae las notas del orador. La fuente editable está en `presentacion_final/fuente/`; el PDF y el PPTX se regeneran con `render.py` y `armar_pptx.py` (ver [`presentacion_final/README.md`](presentacion_final/README.md)) |
+| [`presentacion_final/deck_animado/`](presentacion_final/deck_animado) | Versión animada de la presentación (22 diapositivas): [`index.html`](presentacion_final/deck_animado/index.html), que se abre en el navegador, y su [PDF](presentacion_final/deck_animado/KNN_paralelo_deck_animado.pdf) |
 | [`codigo/`](codigo) | Betas 1, 2 y 3 (y la 3b, con `comm.reduce`), validación, ping-pong, barrido de experimentos y análisis. Cada archivo y sus comandos están en [`codigo/README.md`](codigo/README.md) |
 | [`codigo/resultados/`](codigo/resultados) | Medición final del 11-nov-2026 (Apple M1 Pro, p = 1 a 8, una sola sesión): tiempos, tablas, figuras, validación y entorno |
 | [`docs/`](docs) | Enunciado del proyecto |
